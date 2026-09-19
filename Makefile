@@ -1,86 +1,51 @@
-# Inference-Infra — one entrypoint for every lab.
+# Inference-Infra — run these ON the workspace pod, in /workspace/Inference-Infra.
 #
-# Run every target from your Mac. Targets that need the GPU wrap themselves in
-# ssh; you never have to remember which is which.
-#
-#   LAB=00-hello-gpu make plan up sync boot serve smoke fetch save down
+#   LAB=00-hello-gpu make plan boot serve smoke save
 
-LAB     ?= 00-hello-gpu
-CFG     := labs/$(LAB)/config.yaml
-REMOTE  := /workspace/Inference-Infra
-POD     := .pod            # written by `make up`, gitignored
-SSHOPTS := -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10
+LAB ?= 00-hello-gpu
+CFG := labs/$(LAB)/config.yaml
 
-# host/port for the live pod, if there is one
--include $(POD)
-SSH := ssh $(SSHOPTS) -p $(PORT) root@$(HOST)
-ONPOD = $(SSH) "cd $(REMOTE) && LAB=$(LAB) $(1)"
-
-.PHONY: help plan test up sync boot serve smoke logs fetch save status down ssh clean
+.PHONY: help plan test boot serve smoke bench logs save status gpu-up gpu-down clean
 .DEFAULT_GOAL := help
 
 help:  ## show this help
-	@grep -hE '^[a-z-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*##/\t/' | expand -t22
+	@grep -hE '^[a-z-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*##/\t/' | expand -t14
 
-# ---- local, no pod, no cost ------------------------------------------------
+# ---- free: no GPU needed ---------------------------------------------------
 plan:  ## predicted VRAM budget for this lab
 	@uv run python -m common.plan $(CFG)
 
 test:  ## run the test suite
 	@uv run --extra dev pytest -q
 
-# ---- pod lifecycle ---------------------------------------------------------
-up:  ## create the pod and wait for SSH  [STARTS BILLING]
-	@uv run python -m common.pod up $(CFG) --write $(POD)
-
 status:  ## live pods and what they cost
 	@uv run python -m common.pod status
 
-down:  ## terminate the pod  [STOPS BILLING]
-	@uv run python -m common.pod down --pod-file $(POD) && rm -f $(POD)
+save:  ## commit and push
+	@git add -A && git commit -q -m "$(LAB): $(m)" && git push -q && echo pushed
 
-ssh:  ## interactive shell on the pod (debugging escape hatch)
-	@$(SSH)
+# ---- GPU pod lifecycle, driven from the workspace pod ----------------------
+gpu-up:  ## create the lab's GPU pod  [STARTS BILLING]
+	@uv run python -m common.pod up $(CFG)
 
-# ---- code and data movement ------------------------------------------------
-sync:  ## rsync code Mac -> pod
-	@rsync -az --delete --info=stats1 \
-	  --exclude '.git' --exclude '.venv' --exclude '__pycache__' \
-	  --exclude 'results/*' --exclude '$(POD)' \
-	  -e "ssh $(SSHOPTS) -p $(PORT)" ./ root@$(HOST):$(REMOTE)/
+gpu-down:  ## terminate it  [STOPS BILLING]
+	@uv run python -m common.pod down $(CFG)
 
-fetch:  ## rsync results pod -> Mac
-	@rsync -az --info=stats1 -e "ssh $(SSHOPTS) -p $(PORT)" \
-	  root@$(HOST):$(REMOTE)/labs/$(LAB)/results/ labs/$(LAB)/results/
+# ---- run on whichever pod has the GPUs -------------------------------------
+boot:  ## download weights for this lab
+	@uv run python -m common.pod prefetch $(CFG)
 
-save:  ## commit and push results
-	@git add -A && git commit -q -m "$(LAB): results" && git push -q && echo "pushed"
+serve:  ## launch vLLM, wait for /health
+	@uv run python -m common.serve $(CFG) --log labs/$(LAB)/results/vllm.log
 
-# ---- work that happens on the GPU -----------------------------------------
-boot:  ## uv sync + download weights  (on pod)
-	@$(call ONPOD,make _boot)
-
-serve:  ## launch vLLM, wait for /health  (on pod)
-	@$(call ONPOD,make _serve)
-
-smoke:  ## one request, print the reply  (on pod)
-	@$(call ONPOD,make _smoke)
-
-logs:  ## tail the vLLM log  (on pod)
-	@$(SSH) "tail -f $(REMOTE)/labs/$(LAB)/results/vllm.log"
-
-# ---- inner targets: these run ON the pod, invoked by the wrappers above ----
-_boot:
-	@export HF_HOME=/workspace/hf-cache && \
-	 uv sync --quiet && \
-	 uv run python -m common.pod prefetch $(CFG)
-
-_serve:
-	@export HF_HOME=/workspace/hf-cache && \
-	 uv run python -m common.serve $(CFG) --log labs/$(LAB)/results/vllm.log
-
-_smoke:
+smoke:  ## one request, print the reply
 	@uv run python -m common.smoke $(CFG) --out labs/$(LAB)/results/smoke.json
+
+bench:  ## concurrency sweep -> results.jsonl
+	@uv run python -m common.runner $(CFG) --out labs/$(LAB)/results/results.jsonl
+
+logs:  ## tail the vLLM log
+	@tail -f labs/$(LAB)/results/vllm.log
 
 clean:
 	@rm -rf .pytest_cache **/__pycache__

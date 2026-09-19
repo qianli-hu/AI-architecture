@@ -13,13 +13,14 @@ Five labs, increasing difficulty, each building the harness the next one uses.
 
 | Lab | GPUs | $/hr | Teaches | Purpose |
 |---|---|---|---|---|
-| **00 hello-gpu** | 1× A5000 24 GB | $0.27 | pod → ssh → rsync → download → serve → curl → terminate | 1 |
-| **01 batching** | 1× A5000 | $0.27 | concurrency sweep: TTFT, throughput, preemption | 2 |
-| **02 tensor-parallel** | 2× A5000 | $0.54 | TP=1 vs TP=2 on a model that fits on one card | 3 |
-| **03 serving-27b** | 2× A40 96 GB | $0.98 | five-config matrix: TP, FP8, KV dtype, MTP | 2+3 |
-| **04 distributed-training** | 2× A40 | $0.98 | QLoRA, FSDP, gradient all-reduce over PCIe | 4 |
+| **00 hello-gpu** | 1× L4 24 GB | $0.49 | the full loop end to end, timed | 1 |
+| **01 batching** | 1× L4 | $0.49 | concurrency sweep: TTFT, throughput, preemption | 2 |
+| **02 tensor-parallel** | 2× L4 | $0.98 | TP=1 vs TP=2 on a model that fits on one card | 3 |
+| **03 serving-27b** | 1–2× PRO 6000 96 GB | $2.09–4.18 | FP8/BF16 × TP=1/TP=2, a clean 2×2 | 2+3 |
+| **04 distributed-training** | 2× PRO 6000 | $4.18 | QLoRA, FSDP, gradient all-reduce over PCIe | 4 |
 
-Whole ladder ≈ **$28**.
+All in **US-MO-2**, all mounting the same 150 GB network volume. A `cpu3g`
+workspace pod ($0.08/hr) mounts it too — that is where you edit.
 
 ## Two design decisions that make the ladder work
 
@@ -29,9 +30,10 @@ uses `Qwen/Qwen3.8-27B`. Both are `Qwen3_5ForConditionalGeneration` with
 The 4B is the 27B at 1/6 scale. Nothing learned cheaply has to be relearned
 expensively.
 
-Likewise the GPUs: the **A5000 is GA102**, the same silicon family as the A40
-and A6000. Ampere behaviour — Marlin FP8, memory characteristics, NCCL over
-PCIe — carries from the $0.27/hr card to the $0.98/hr one unchanged.
+The GPUs differ by tier, deliberately: the L4 is Ada (native FP8), the RTX
+PRO 6000 is Blackwell (native FP8 + NVFP4). Both do FP8 in hardware, unlike
+the Ampere cards originally planned, where vLLM falls back to `fp8_marlin`
+weight-only W8A16 — memory win, no compute win.
 
 **`common/` is built *by* the labs, not before them.** Lab 00 writes
 `runner.py` at its simplest: launch a server, curl it. Lab 01 adds the
@@ -57,9 +59,8 @@ Distributed training is a different beast and 2× A40 has hard limits:
 - **No NVLink.** Gradient all-reduce over PCIe costs far more in training than
   tensor-parallel activations cost in inference — you sync every step.
 - **Full fine-tuning a 27B is out.** weights + grads + Adam states ≈ 8 B/param
-  → ~220 GB. You have 96.
-- **QLoRA fits comfortably.** 4-bit frozen base ≈ 15 GB, adapters are tiny,
-  activations manageable with gradient checkpointing.
+  → ~220 GB. Two PRO 6000s give 192 GB — closer than the A40 plan, still short.
+- **QLoRA fits easily.** 4-bit frozen base ≈ 15 GB against 96 GB per card.
 
 Lab 04 is therefore specced as *QLoRA + FSDP mechanics*, not "train a 27B".
 It needs its own design pass before starting.

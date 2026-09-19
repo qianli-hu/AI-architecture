@@ -102,3 +102,61 @@ would make the US-MO-2 pin genuinely expensive.
 - `common/{plan,pod,serve,smoke}.py` are referenced by the Makefile but not
   yet written (~250 lines)
 - Account balance unverified — the MCP surface exposes spend, not balance
+
+---
+
+# Your setup, as of now
+
+## Nothing lives on the Mac
+
+Exactly one thing stays local, because it cannot move:
+
+| On the Mac | Why |
+|---|---|
+| `~/.ssh/id_ed25519` (private key) | it is how you reach the pod; putting it on the pod is circular |
+
+That is the whole list. `~/Documents/projects/Inference-Infra` is now a
+**stale mirror** — everything in it is pushed. Leave it as a cold backup or
+delete it, but **do not edit it.** Two writers to one GitHub repo is how you
+lose an afternoon.
+
+## Where everything actually lives
+
+| | Holds | Lifetime |
+|---|---|---|
+| **Network volume** `inference-infra` | `/workspace/Inference-Infra` (the repo), `hf-cache` (weights), `.venv` | permanent, $10.50/mo |
+| **Pod** | OS, CUDA, the CLIs `bootstrap-workspace.sh` installs | **disposable** — terminate freely |
+| **GitHub** | source of truth for code | permanent |
+| **Mac** | one SSH private key | — |
+
+## Daily rhythm
+
+```
+sit down   →  create pod (cpu3g 2 vCPU, $0.08/hr) with volume attached
+           →  ssh in; /workspace is already populated, ~1 min
+           →  claude     # work
+stand up   →  git push
+           →  TERMINATE the pod        (not stop — nothing on it is worth keeping)
+```
+
+A three-hour session costs **24 cents**. Terminating loses nothing, because
+the volume holds everything and re-mounting is instant. This is precisely
+what the $10.50/mo bought.
+
+## What changed by moving onto the pod
+
+The pod now talks to GitHub, which the earlier Mac-centric design deliberately
+avoided. That means **a credential with write access to your repos now lives
+on rented hardware you do not own.** Two mitigations:
+
+1. Use `gh auth login` over HTTPS — a scoped, revocable token — never an SSH
+   deploy key.
+2. Terminate pods when you are done. A terminated pod's container disk is
+   gone, token included.
+
+## The rule that keeps the US-MO-2 pin cheap
+
+**Anything you install by hand goes into `scripts/bootstrap-workspace.sh`
+and gets pushed.** The volume is a cache, not a vault. A hand-built
+environment nobody can reproduce is the single thing that would turn a
+half-hour migration into a lost weekend.

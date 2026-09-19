@@ -15,6 +15,33 @@ export HF_HOME=$WORKSPACE/hf-cache
 
 say() { printf '\n\033[1;34m==>\033[0m %s\n' "$*"; }
 
+say "persist home config onto the volume"
+# $HOME lives on the container disk and dies with the pod. These paths hold
+# credentials and state worth keeping, so they live on the network volume and
+# are symlinked back into $HOME. Idempotent: re-running relinks, and an
+# existing real directory is migrated rather than clobbered.
+PERSIST=$WORKSPACE/.home
+mkdir -p "$PERSIST"
+
+persist() {                       # persist <path-under-$HOME> <dir|file>
+  local name=$1 kind=$2 src=$HOME/$1 dst=$PERSIST/$1
+  [ -L "$src" ] && return 0                      # already linked
+  if [ -e "$src" ]; then
+    if [ -e "$dst" ]; then rm -rf "$src"         # volume copy wins
+    else mv "$src" "$dst"; fi                    # migrate into the volume
+  fi
+  # a dir must exist before something mkdirs inside it; a file may dangle,
+  # since writing through the link creates the target
+  [ "$kind" = dir ] && mkdir -p "$dst"
+  ln -s "$dst" "$src"
+  printf '  %-16s -> %s\n' "~/$name" "$dst"
+}
+
+persist .config       dir    # gh auth token
+persist .claude       dir    # Claude Code config
+persist .claude.json  file   # Claude Code state
+persist .bash_history file
+
 say "system packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
@@ -81,5 +108,8 @@ cat <<'NEXT'
     gh auth login                 # HTTPS
     claude                        # then /login
     export HF_TOKEN=...           # for gated models
+
+  You only do these ONCE. ~/.config and ~/.claude are symlinked onto the
+  network volume, so both logins survive pod termination.
 
 NEXT

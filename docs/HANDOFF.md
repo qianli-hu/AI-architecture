@@ -154,6 +154,26 @@ on rented hardware you do not own.** Two mitigations:
 2. Terminate pods when you are done. A terminated pod's container disk is
    gone, token included.
 
+## Credentials persist on the volume — a deliberate trade
+
+`$HOME` is on the container disk and dies with every pod, so `gh` and Claude
+Code logins would otherwise be redone on each cold start. `bootstrap-workspace.sh`
+symlinks them onto the volume instead:
+
+    ~/.config        -> /workspace/.home/.config        # gh auth token
+    ~/.claude        -> /workspace/.home/.claude        # Claude Code config
+    ~/.claude.json   -> /workspace/.home/.claude.json
+    ~/.bash_history  -> /workspace/.home/.bash_history
+
+**The cost:** a GitHub token with write access to your repos now lives on
+storage that outlives every pod, in a datacenter you do not control — where
+before it died with the container. Accepted knowingly, for ~90 seconds saved
+per cold start.
+
+If that stops feeling worth it, drop `persist .config dir` from the script and
+re-run `gh auth login` per pod. Revoke the token at
+github.com/settings/tokens if a pod is ever compromised.
+
 ## The rule that keeps the US-MO-2 pin cheap
 
 **Anything you install by hand goes into `scripts/bootstrap-workspace.sh`

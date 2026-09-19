@@ -1,0 +1,25 @@
+# Lab 00 — prove the loop. One GPU, one model, one request, eight timings.
+lab: 00-hello-gpu
+
+pod:
+  gpu: "NVIDIA RTX A5000"
+  count: 1
+  cloud: SECURE
+  container_disk_gb: 30     # image unpacks ~15-20 GB
+  volume_disk_gb: 40        # 9.34 GB weights + .venv + headroom
+  ports: ["22/tcp"]         # direct SSH — rsync needs this
+  price_per_gpu_hr: 0.27
+
+model:
+  repo: "Qwen/Qwen3.5-4B"
+  weights_gb: 9.34
+  key: qwen3.5-4b           # -> common.vram.MODELS
+
+serve:
+  tensor_parallel_size: 1
+  max_model_len: 32768      # 262144 is supported; leashed for a smoke test
+  port: 8000
+
+smoke:
+  prompt: "In one sentence, what does tensor parallelism do?"
+  max_tokens: 64

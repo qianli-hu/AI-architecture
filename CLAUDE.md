@@ -44,6 +44,21 @@ the environment's only memory.**
 - **Terminate, never stop.** Stop still wipes the container disk, so it buys
   almost nothing and keeps charging for held disk.
 
+## Always work inside tmux
+
+SSH to the pod drops — RunPod's TCP proxy reaps idle connections, and an SSH
+session is idle while Claude Code is thinking. Without tmux a drop kills
+whatever was running. With it, the drop is invisible:
+
+```bash
+ssh pod                       # ~/.ssh/config on the Mac carries the keepalives
+tmux new -A -s work           # attach if it exists, create if not
+# ... work. connection dies? just ssh back and run the same command.
+```
+
+`Ctrl-b d` detaches on purpose; `tmux ls` lists sessions. Long jobs — a weight
+download, a benchmark sweep — should never run outside tmux.
+
 ## Cost discipline
 
 | Tier | Spec | $/hr |

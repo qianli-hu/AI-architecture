@@ -42,6 +42,14 @@ persist .claude       dir    # Claude Code config
 persist .claude.json  file   # Claude Code state
 persist .bash_history file
 
+say "sshd keepalive"
+# the base image ships ClientAliveInterval 0, so an idle session (Claude Code
+# thinking, a long build) gets reaped by NAT and you see "broken pipe"
+if ! grep -q '^ClientAliveInterval' /etc/ssh/sshd_config 2>/dev/null; then
+  printf '\nClientAliveInterval 30\nClientAliveCountMax 20\nTCPKeepAlive yes\n' >> /etc/ssh/sshd_config
+  pkill -HUP sshd 2>/dev/null || true   # reload config, existing sessions survive
+fi
+
 say "system packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq

@@ -47,7 +47,9 @@ say "sshd keepalive"
 # thinking, a long build) gets reaped by NAT and you see "broken pipe"
 if ! grep -q '^ClientAliveInterval' /etc/ssh/sshd_config 2>/dev/null; then
   printf '\nClientAliveInterval 30\nClientAliveCountMax 20\nTCPKeepAlive yes\n' >> /etc/ssh/sshd_config
-  pkill -HUP sshd 2>/dev/null || true   # reload config, existing sessions survive
+  # HUP only the LISTENER via its pidfile -- `pkill -HUP sshd` would also hit
+  # the per-connection children and kill the very session running this script
+  [ -f /run/sshd.pid ] && kill -HUP "$(cat /run/sshd.pid)" 2>/dev/null || true
 fi
 
 say "system packages"

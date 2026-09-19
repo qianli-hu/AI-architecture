@@ -122,9 +122,26 @@ cache, so long-context KV is far cheaper than a dense model of equal size. The
 official vLLM recipe reports FP8/TP2 on 2×5090 at 14.28 GiB/GPU weights and
 377,456 KV tokens at 262K context.
 
-**On Ampere, FP8 is a memory optimization only.** The A6000 has no FP8 tensor
-cores; vLLM dequantizes via Marlin kernels. Expect the memory win with no
-compute win. This is a finding to report, not a problem to fix.
+**On Ampere, FP8 is a memory optimization only — verified 2026-09-19.**
+vLLM loads FP8 checkpoints on sm_80/sm_86 via the `fp8_marlin` kernel as
+**W8A16**: weights stay FP8-sized in VRAM and are dequantized to FP16
+in-register during the GEMM. W8A8 needs compute capability > 8.9 (Ada,
+Hopper), which the A40 does not have. So: memory win, no compute win.
+
+This is a finding to report, not a problem to fix — and it is the cleanest
+possible demonstration that a quantization format must match the hardware's
+tensor cores, not just fit in memory.
+
+**A40 VRAM budget (48 GB/card):**
+
+| Config | Weights/GPU | Free for KV | KV tokens @ 64 KB/tok |
+|---|---|---|---|
+| 1 — FP8, TP=1 | 31.0 | 16.5 | ~200K+ |
+| 3 — BF16, TP=2 | 26.0 | 21.5 | ~670K (caps at 262K context) |
+
+KV is `2 × 16 full-attn layers × 4 kv_heads × 256 head_dim × dtype` — only 16
+of 64 layers cache. The other 48 are linear attention with constant
+per-sequence state. A dense 27B would need roughly 4× the KV.
 
 ### 2.4 Software
 
@@ -208,7 +225,7 @@ into understanding.
 | 1 | FP8, TP=1 | baseline — 31 GB fits one A6000 |
 | 2 | FP8, TP=2 | **pure TP cost/benefit** — identical weights, only TP changes |
 | 3 | BF16, TP=2 | what the extra 48 GB bought; impossible at TP=1 |
-| 4 | FP8 + `--kv-cache-dtype fp8`, TP=2 | KV quantization as an axis separate from weight quantization |
+| 4 | FP8 + `--kv-cache-dtype fp8`, TP=2 | KV quantization as an axis separate from weight quantization. **Ampere support unconfirmed — verify in the smoke test; if unsupported, substitute a `--max-model-len` sweep.** |
 | 5 | FP8 + MTP spec decode, TP=2 | `{"method":"mtp","num_speculative_tokens":3}` |
 
 Config 2 is the centerpiece. Running TP=2 on a model that *fits on one GPU* is

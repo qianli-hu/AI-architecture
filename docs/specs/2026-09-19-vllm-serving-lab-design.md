@@ -1,6 +1,6 @@
 # vLLM Multi-GPU Serving Lab — Design
 
-**Date:** 2026-09-19
+**Date:** 2026-09-19 (rev. 2 — hardware re-chosen against live catalog)
 **Status:** Draft, awaiting review
 **Scope:** Phases 0–4. Gateway (phase 5) and LoRA loop (phase 6) are out of scope
 and will get their own specs.
@@ -28,47 +28,68 @@ The chosen model is a Qwen VLM, the same family as the EMBC 2026
 
 ## 2. Decisions
 
-### 2.1 Hardware: 2× RTX A6000, Secure Cloud
+### 2.1 Hardware: 2× NVIDIA A40, Secure Cloud
 
-| GPU | VRAM | Community | Secure | Bandwidth | FP8 tensor cores |
-|---|---|---|---|---|---|
-| **RTX A6000** | 48 GB | $0.33 | **$0.53** | 768 GB/s | no |
-| A40 | 48 GB | $0.35 | $0.49 | 696 GB/s | no |
-| RTX 4090 | 24 GB | $0.34 | $0.74 | 1008 GB/s | yes |
+**Chosen against the live catalog on 2026-09-19, not from published price lists.**
 
-**A6000 over A40:** same GA102 silicon, same 10752 CUDA cores, same 48 GB
-GDDR6 ECC. A6000 has 16 Gbps memory modules vs A40's 14.5 → 768 vs 696 GB/s.
-Decode is memory-bandwidth-bound, so that is ~10% more tok/s. On Community
-A6000 is also *cheaper*; on Secure it is $0.04 more, which is fair for 10%.
+| GPU | 2-GPU availability | $/hr (pair) | Datacenters (count=2) | Network volume? |
+|---|---|---|---|---|
+| RTX A6000 | **NONE** | — | none | — |
+| **A40** | **HIGH** | **$0.98** | CA-MTL-1 (low), EU-SE-1 (med) | no |
+| L40S | LOW | $2.18 | OC-AU-1, US-MO-1 | no |
+| RTX 4090 | HIGH | $1.48 | EU-RO-1 (high) | yes |
 
-**A6000 over 4090:** 96 GB vs 48 GB total. The 4090 wins on bandwidth (1008)
-and has native FP8 tensor cores, but 24 GB per card forces quantization on a
-model we want to study at full precision.
+**A6000 is out of stock** — `availability: NONE` at 1 and 2 GPUs, every CUDA
+version. The earlier choice rested on a 10% memory-bandwidth edge (768 vs
+696 GB/s) over the A40. That edge is unpurchasable.
 
-**Secure over Community:** network volumes are Secure-only. See 2.2.
+**The 4090 is rejected because it breaks the experiment, not on price.**
+Config 1 is the TP=1 baseline: the 30.9 GB FP8 checkpoint on one GPU. A 4090
+has 24 GB — it cannot load. Config 2, the centerpiece, is meaningless without
+config 1 on identical weights. Config 3 (BF16, 52 GB) needs 96 GB. The 4090
+would buy native FP8 tensor cores and network-volume support at the cost of
+the matrix being incoherent.
 
-Cost: **$1.06/hr** for the pair.
+**A40 is the only in-stock configuration where all five configs are viable:**
+FP8 (31 GB) fits one 48 GB card; BF16 (52 GB) spans two.
 
-### 2.2 Storage
+Region **EU-SE-1** (MEDIUM) over CA-MTL-1 (LOW). Latency from the US east
+coast is ~110 ms, which is irrelevant: the load generator runs on-pod by
+design, so no measurement crosses the Atlantic.
+
+Cost: **$0.98/hr** for the pair.
+
+A40 is Ampere: no FP8 tensor cores, vLLM dequantizes via Marlin. See §2.3.
+
+### 2.2 Storage — volume disk, not network volume
 
 | Tier | Mount | Survives stop | Survives terminate | Price |
 |---|---|---|---|---|
 | Container disk | `/` | no | no | $0.10/GB/mo running |
-| Volume disk | `/workspace` | yes | **no** | $0.10 / $0.20 |
-| **Network volume** | `/workspace` | yes | **yes** | **$0.07/GB/mo** |
+| **Volume disk** | `/workspace` | **yes** | **no** | $0.10 running / $0.20 stopped |
+| Network volume | `/workspace` | yes | yes | $0.07/GB/mo — **unavailable here** |
 
-**Network volume, 150 GB, $10.50/mo.** Sized for BF16 (52) + FP8 (31) +
-smoke-test model (18) + `.venv` and caches (5) ≈ 107 GB, with headroom.
-Volumes grow but never shrink.
+**Network volumes are impossible for this hardware.** Cross-referencing the
+volume-capable datacenters against where A40 and L40S have 2-GPU capacity
+yields zero overlap. Only the 4090 in EU-RO-1 has both, and the 4090 is
+rejected above.
 
-The argument is economic, not convenience: a network volume makes *terminate*
-free of consequence. Without one you are pushed to leave pods stopped (paying
-storage, risking the host) or running (paying $1.06/hr to idle). With one you
-kill the pod the moment you stop working.
+So `/workspace` is a **120 GB volume disk**: FP8 (31) + BF16 (52) +
+smoke-test model (18) + `.venv` and caches (5) ≈ 106 GB, with headroom.
 
-**Container disk: 50 GB, not the 20 GB default.** The image unpacks to ~15–20 GB;
-the remainder is `/tmp`, torch compile cache, CUDA graph cache. The default
-fills silently and fails hours in.
+**This reverses the "terminate is free" property.** The arithmetic:
+
+- leave the pod stopped: 120 GB × $0.20/GB/mo = **$24/mo**
+- terminate and re-download: 83 GB of weights ≈ 15–25 min ≈ **$0.40** of GPU time
+
+Re-downloading wins decisively for weekend-burst usage. **Terminate between
+sessions**; `make bootstrap` re-pulls weights as one command.
+
+**Container disk: 50 GB, not the 20 GB default.** The image unpacks to
+~15–20 GB; the rest is `/tmp`, torch compile cache, CUDA graph cache. The
+default fills silently and fails hours in.
+
+Revised total for the lab: **~$20** (20 GPU-hours at $0.98 plus disk).
 
 ### 2.3 Model: `Qwen/Qwen3.8-27B`
 
@@ -107,6 +128,7 @@ compute win. This is a finding to report, not a problem to fix.
 
 ### 2.4 Software
 
+- Region: EU-SE-1.
 - Image: official `vllm/vllm-openai`, pinned. vLLM ≥ 0.17 required for this
   architecture; recipe verified on 0.26.x. Exact tag confirmed against the
   `runpod-templates` skill before first pod.
@@ -119,7 +141,7 @@ compute win. This is a finding to report, not a problem to fix.
 ## 3. Topology
 
 ```
-   MAC                        GITHUB                POD (2× A6000)
+   MAC                        GITHUB                POD (2× A40)
    Claude Code + git          AI-architecture       /workspace (netvol)
    ├── make sync  ──rsync───────────────────────▶   Inference-Infra/  (no .git)
    ├── make fetch ◀─rsync───────────────────────    results/
@@ -226,7 +248,7 @@ Do not script what you have never run by hand.
 | Risk | Mitigation |
 |---|---|
 | Hybrid linear-attention kernels are new; a dual-consumer-GPU field report hit scratch-tensor allocation failures and OOMs presenting as "compatibility" errors | Pin a known-good vLLM tag. **Smoke-test the whole harness on a ~9B model on one GPU first.** Never debug the runner and a novel attention kernel at once. |
-| 2× A6000 Secure unavailable in the volume's datacenter | **Check GPU availability by region *before* creating the network volume** — the volume pins you to one datacenter permanently |
+| 2× A40 Secure unavailable in the volume's datacenter | **Check GPU availability by region *before* creating the network volume** — the volume pins you to one datacenter permanently |
 | Container disk fills mid-run | 50 GB, not 20 |
 | Benchmark client competes with the server for CPU | Run on-pod by default; do one Mac-side run to quantify and name the difference |
 | vLLM holds ~90% VRAM until process exit | Runner waits for VRAM to drop between configs |

@@ -1,0 +1,17 @@
+# deps — declared by uv.lock, never committed
+.venv/
+__pycache__/
+*.py[cod]
+
+# secrets
+.env
+*.pem
+
+# model weights — live on HF Hub and the pod's network volume, never here
+hf-cache/
+*.safetensors
+*.gguf
+
+# local noise
+.DS_Store
+.ipynb_checkpoints/

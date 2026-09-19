@@ -15,3 +15,6 @@ hf-cache/
 # local noise
 .DS_Store
 .ipynb_checkpoints/
+
+# pod connection details, written by `make up`
+.pod

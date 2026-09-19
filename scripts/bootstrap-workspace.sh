@@ -89,10 +89,13 @@ grep -q 'HF_HOME' ~/.bashrc 2>/dev/null || cat >> ~/.bashrc <<'RC'
 # --- inference-infra ---
 export HF_HOME=/workspace/hf-cache
 export PATH="$HOME/.local/bin:$PATH"
+# secrets and per-machine env live on the volume, not in this ephemeral file
+[ -f /workspace/.home/.bash_env ] && . /workspace/.home/.bash_env
 cd /workspace/Inference-Infra 2>/dev/null || true
 RC
 
 mkdir -p "$HF_HOME"
+touch "$PERSIST/.bash_env"
 
 say "verify"
 printf '  uv      %s\n' "$(uv --version 2>/dev/null || echo MISSING)"
@@ -107,7 +110,7 @@ cat <<'NEXT'
   Next, by hand (interactive, can't be scripted):
     gh auth login                 # HTTPS
     claude                        # then /login
-    export HF_TOKEN=...           # for gated models
+    echo 'export HF_TOKEN=...' >> /workspace/.home/.bash_env
 
   You only do these ONCE. ~/.config and ~/.claude are symlinked onto the
   network volume, so both logins survive pod termination.

@@ -50,3 +50,4 @@ Volume: $10.50/mo, always. Compute: only while a pod runs.
     common/          shared harness (plan, pod, serve, smoke, parse, timing, vram)
     labs/NN-name/    config.yaml  results/<run>/  findings.md
     docs/specs/      one spec per lab
+    interview-guide/ how the pieces connect, in plain language

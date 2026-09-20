@@ -6,7 +6,7 @@ pod:
   card: l4                  # -> common.vram.CARDS
   count: 1
   cloud: SECURE
-  datacenter: US-MO-2       # must match the volume's building
+  datacenter: US-MO-2       # informational: the volume is what pins it
   network_volume_id: 59jaue9ud8   # repo + weights arrive already mounted
   image: vllm/vllm-openai:v0.29.0-cu129   # pinned 2026-09-19; 10.7 GB compressed
   container_disk_gb: 30     # image unpacks ~15-20 GB

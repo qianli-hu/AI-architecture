@@ -56,7 +56,9 @@ def create_body(cfg: dict, public_key: str) -> dict:
         "cloudType": pod.get("cloud", "SECURE"),
         "gpuTypeIds": [pod["gpu"]],
         "gpuCount": pod.get("count", 1),
-        "dataCenterIds": [pod["datacenter"]],
+        # No dataCenterIds: the REST schema's enum predates US-MO-2 and rejects
+        # it with a 400. The volume pins the datacenter anyway -- a pod can
+        # only mount a volume in its own building.
         "networkVolumeId": pod["network_volume_id"],
         "volumeMountPath": "/workspace",
         "containerDiskInGb": pod["container_disk_gb"],
@@ -176,7 +178,7 @@ def ssh(remote: list[str]) -> int:
     state = saved()
     if not state or "ip" not in state:
         sys.exit("no reachable GPU pod -- `make gpu-up` first")
-    os.execvp("ssh", ssh_argv(state["ip"], state["port"], remote))
+    os.execvp("ssh", ssh_argv(state["ip"], state["port"], [r for r in remote if r.strip()]))
 
 
 def prefetch(cfg_path: str) -> int:

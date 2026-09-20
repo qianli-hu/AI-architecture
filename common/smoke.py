@@ -2,11 +2,16 @@
 Proves the server actually generates -- and shows what a single uncontended
 request costs, the baseline lab 01's concurrency sweep is read against.
 
-    python -m common.smoke labs/00-hello-gpu/config.yaml
+    python -m common.smoke labs/00-hello-gpu/config.yaml          # once
+    python -m common.smoke labs/00-hello-gpu/config.yaml --n 10   # a distribution
+
+Repeats are sent one after another, never overlapping: this measures how
+stable an idle server is, not how it behaves under load. That is lab 01.
 """
 from __future__ import annotations
 
 import json
+import statistics
 import time
 from typing import Callable, Iterable
 
@@ -67,36 +72,69 @@ def consume(lines: Iterable[bytes | str], clock: Callable[[], float] = time.mono
     }
 
 
+METRICS = ("ttft_s", "decode_tokens_per_s", "total_s")
+
+
+def summarize(rows: list[dict]) -> dict:
+    """Spread of each metric across repeats. cv = stdev/mean: the one number
+    that says "how stable" without needing to know the unit."""
+    out = {}
+    for k in METRICS:
+        xs = [r[k] for r in rows if r.get(k) is not None]
+        if not xs:
+            continue
+        mean = statistics.fmean(xs)
+        sd = statistics.stdev(xs) if len(xs) > 1 else 0.0
+        out[k] = {"n": len(xs), "mean": round(mean, 4), "median": round(statistics.median(xs), 4),
+                  "stdev": round(sd, 4), "min": min(xs), "max": max(xs),
+                  "cv_pct": round(100 * sd / mean, 2) if mean else None}
+    return out
+
+
+def render(rows: list[dict], summary: dict) -> str:
+    out = ["    #    TTFT s   decode tok/s   total s   tokens"]
+    out += [f"  {i:>3}  {r['ttft_s']:>8.4f}  {r['decode_tokens_per_s'] or 0:>13.2f}  "
+            f"{r['total_s']:>8.4f}  {r['completion_tokens']:>7}" for i, r in enumerate(rows, 1)]
+    out.append("")
+    for k, s in summary.items():
+        out.append(f"  {k:<20} mean {s['mean']:<9} median {s['median']:<9} stdev {s['stdev']:<8} "
+                   f"min {s['min']:<8} max {s['max']:<8} cv {s['cv_pct']}%")
+    return "\n".join(out)
+
+
 def main(argv: list[str] | None = None) -> int:
     import argparse
     p = argparse.ArgumentParser(description="Send one streamed chat completion.")
     p.add_argument("config")
     p.add_argument("--base-url")
+    p.add_argument("--n", type=int, default=1, help="repeat the request, sequentially")
     a = p.parse_args(argv)
 
     cfg = config.load(a.config)
     results = config.results_dir(a.config)
     base = a.base_url or f"http://localhost:{cfg['serve'].get('port', 8000)}"
     body = request_body(cfg)
-    t0 = time.monotonic()
-    with requests.post(f"{base}/v1/chat/completions", json=body, stream=True, timeout=300) as r:
-        r.raise_for_status()
-        # chunk_size=1: the default 512 holds lines back until the buffer fills,
-        # which delivers a short reply in one burst and makes TTFT a lie
-        m = consume(r.iter_lines(chunk_size=1), t0=t0)
+    rows = []
+    for _ in range(a.n):
+        t0 = time.monotonic()
+        with requests.post(f"{base}/v1/chat/completions", json=body, stream=True, timeout=300) as r:
+            r.raise_for_status()
+            # chunk_size=1: the default 512 holds lines back until the buffer
+            # fills, which delivers a short reply in one burst and makes TTFT a lie
+            rows.append(consume(r.iter_lines(chunk_size=1), t0=t0))
+    m, summary = rows[0], summarize(rows)
 
     timing.record(results, "chat completion", m["total_s"], ttft_s=m["ttft_s"],
                   decode_tokens_per_s=m["decode_tokens_per_s"])
-    (results / "smoke.json").write_text(
-        json.dumps({"prompt": cfg["smoke"]["prompt"], **m}, indent=2) + "\n")
+    (results / "smoke.json").write_text(json.dumps(
+        {"prompt": cfg["smoke"]["prompt"], "n": a.n, "summary": summary, "requests": rows},
+        indent=2) + "\n")
 
     print(f"\n  > {cfg['smoke']['prompt']}\n  < {m['text'].strip()}\n")
-    print(f"  prompt tokens      {m['prompt_tokens']}")
-    print(f"  completion tokens  {m['completion_tokens']}")
-    print(f"  TTFT               {m['ttft_s']} s")
-    print(f"  decode             {m['decode_tokens_per_s']} tok/s")
-    print(f"  total              {m['total_s']} s\n")
-    return 0 if m["text"].strip() else 1
+    print(f"  prompt tokens {m['prompt_tokens']}, temperature 0, "
+          f"{len({r['text'] for r in rows})} distinct reply text(s) in {a.n} request(s)\n")
+    print(render(rows, summary) + "\n")
+    return 0 if all(r["text"].strip() for r in rows) else 1
 
 
 if __name__ == "__main__":

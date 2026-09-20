@@ -7,13 +7,16 @@
 LAB ?= 00-hello-gpu
 # every output lands in labs/$(LAB)/results/$(RUN)/ -- name a run to keep it
 RUN ?= base
+N ?= 1
 export RUN
 CFG := labs/$(LAB)/config.yaml
 OUT := labs/$(LAB)/results/$(RUN)
-# The workspace has uv and the repo's .venv. The GPU pod runs the vLLM image,
-# which has neither -- but its system python already carries everything
-# common/ imports, so fall back to it.
-PY := $(shell command -v uv >/dev/null 2>&1 && echo "uv run python" || echo python3)
+# The workspace runs from the repo's .venv through uv. The GPU pod runs the
+# vLLM image, whose system python already carries everything common/ imports
+# -- and which also ships uv, so "use uv if present" rebuilt the shared .venv
+# against the wrong interpreter from there. Where vllm is installed, use the
+# system python and leave .venv alone.
+PY := $(shell command -v vllm >/dev/null 2>&1 && echo python3 || echo "uv run python")
 
 .PHONY: ssh-config help plan test boot serve stop smoke bench logs timings save status gpu-up gpu-ssh gpu-down clean
 .DEFAULT_GOAL := help
@@ -41,8 +44,11 @@ save:  ## commit and push
 gpu-up:  ## create the lab's GPU pod  [STARTS BILLING]
 	@$(PY) -m common.pod up $(CFG)
 
+# c travels as an env var, so its quotes && ; | reach the GPU pod untouched
+# instead of being parsed -- and partly run -- by the shell here
+gpu-ssh: export CMD := $(c)
 gpu-ssh:  ## shell on the GPU pod, in this repo  (c="make serve RUN=x" runs one command)
-	@$(PY) -m common.pod ssh $(CFG) $(c)
+	@$(PY) -m common.pod ssh $(CFG) "$$CMD"
 
 gpu-down:  ## terminate it  [STOPS BILLING]
 	@$(PY) -m common.pod down $(CFG)
@@ -57,8 +63,8 @@ serve:  ## launch vLLM, wait for /health
 stop:  ## stop vLLM
 	@$(PY) -m common.serve $(CFG) --stop
 
-smoke:  ## one request, print the reply
-	@$(PY) -m common.smoke $(CFG)
+smoke:  ## one streamed request: reply, TTFT, tok/s  (N=10 repeats it for a distribution)
+	@$(PY) -m common.smoke $(CFG) --n $(N)
 
 bench:  ## concurrency sweep -> results.jsonl
 	@$(PY) -m common.runner $(CFG) --out $(OUT)/results.jsonl

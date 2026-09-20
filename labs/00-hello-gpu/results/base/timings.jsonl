@@ -1,1 +1,5 @@
 {"step": "hf download Qwen/Qwen3.5-4B", "seconds": 12.5, "at": 1789858938}
+{"step": "pod create -> SSH accepts", "seconds": 285.88, "at": 1789923105}
+{"step": "vllm serve -> /health 200", "seconds": 295.39, "at": 1789923476}
+{"step": "chat completion", "seconds": 1.28, "at": 1789923501, "ttft_s": 0.1718, "decode_tokens_per_s": 29.8}
+{"step": "pod lifetime", "seconds": 688.04, "at": 1789923509, "cost_usd": 0.094}

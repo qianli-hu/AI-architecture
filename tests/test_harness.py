@@ -30,8 +30,8 @@ def test_fp8_kv_cache_halves_bytes_per_token(cfg):
 # ---- pod --------------------------------------------------------------------
 def test_create_body_pins_the_pod_to_the_volume(cfg):
     body = pod.create_body(cfg, "ssh-ed25519 AAAA test")
-    # a pod anywhere but the volume's datacenter boots with an empty /workspace
-    assert body["dataCenterIds"] == ["US-MO-2"]
+    # the volume is what pins the datacenter; the REST enum rejects US-MO-2
+    assert "dataCenterIds" not in body
     assert body["networkVolumeId"] == "59jaue9ud8"
     assert body["gpuTypeIds"] == ["NVIDIA L4"] and body["gpuCount"] == 1
     assert body["env"]["LAB_PUBLIC_KEY"] == "ssh-ed25519 AAAA test"
@@ -169,6 +169,23 @@ def test_consume_measures_ttft_and_decode_rate():
 def test_consume_with_an_empty_reply_reports_no_ttft():
     m = smoke.consume([b"data: [DONE]"], clock=lambda: 0.0)
     assert m["text"] == "" and m["ttft_s"] is None and m["decode_tokens_per_s"] is None
+
+
+def test_summarize_reports_spread_and_skips_missing_values():
+    rows = [{"ttft_s": 0.10, "decode_tokens_per_s": 50.0, "total_s": 1.0},
+            {"ttft_s": 0.20, "decode_tokens_per_s": None, "total_s": 1.0},
+            {"ttft_s": 0.30, "decode_tokens_per_s": 54.0, "total_s": 1.0}]
+    s = smoke.summarize(rows)
+    assert s["ttft_s"]["mean"] == 0.2 and s["ttft_s"]["median"] == 0.2
+    assert s["ttft_s"]["stdev"] == 0.1 and s["ttft_s"]["cv_pct"] == 50.0
+    assert (s["ttft_s"]["min"], s["ttft_s"]["max"]) == (0.10, 0.30)
+    assert s["decode_tokens_per_s"]["n"] == 2          # the None is not a zero
+    assert s["total_s"]["stdev"] == 0 and s["total_s"]["cv_pct"] == 0
+
+
+def test_summarize_single_request_has_no_spread():
+    s = smoke.summarize([{"ttft_s": 0.1, "decode_tokens_per_s": 50.0, "total_s": 1.0}])
+    assert s["ttft_s"]["stdev"] == 0.0
 
 
 # ---- timing -----------------------------------------------------------------

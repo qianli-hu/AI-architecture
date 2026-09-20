@@ -97,8 +97,8 @@ would make the US-MO-2 pin genuinely expensive.
 ## Open questions
 
 - `--kv-cache-dtype fp8` on Blackwell — verify in the smoke test
-- Can one network volume mount to two pods at once? Affects whether the CPU
-  workspace can stay up while a GPU pod runs
+- ~~Can one network volume mount to two pods at once?~~ **Yes** — lab 00 ran
+  with the workspace and the GPU pod both attached.
 - A RunPod API key with read/write scope must be exported from
   `/workspace/.home/.bash_env`. The `RUNPOD_API_KEY` RunPod injects into a pod
   is scoped to that pod and gets a 403 from the REST API.

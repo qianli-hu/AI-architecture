@@ -88,14 +88,16 @@ work — write and test the harness on the cheap tier.
   `findings.md`. That comparison is the point of the whole project.
 - `make help` lists every target.
 
-## State as of 2026-09-19
+## State as of 2026-09-20
 
-Done: repo, specs, bootstrap script, 150 GB volume in US-MO-2, workspace pod
-verified. The lab 00 harness — `common/{config,plan,pod,serve,parse,smoke,timing}.py`,
-30 tests green — dry-run end to end against a fake `vllm`. `Qwen/Qwen3.5-4B`
-weights are already in `/workspace/hf-cache`.
+Done: **lab 00** — the full loop ran on 1× L4 for $0.09 (11 min). Read
+`labs/00-hello-gpu/findings.md`: KV cache predicted 12.16 GiB, measured 9.10,
+gap explained; idle baseline ~100 ms TTFT, 29.8 tok/s decode
+(memory-bandwidth-bound); cold start ≈ 10 min, dominated by image pull and
+vLLM compile/warmup, *not* by weights on the network volume. Harness is
+`common/{config,plan,pod,serve,parse,smoke,timing}.py`, 35 tests green.
+A read/write `RUNPOD_API_KEY` lives in `/workspace/.home/.bash_env`.
 
-Next: run lab 00. Blocked only on a read/write `RUNPOD_API_KEY` in
-`/workspace/.home/.bash_env` (the one RunPod injects is pod-scoped and gets a
-403). Then `make plan gpu-up`, and follow "The loop" in
-`docs/specs/00-hello-gpu.md`. `common/runner.py` is lab 01's job.
+Next: lab 01 (batching). Needs its spec (`docs/specs/01-batching.md`),
+`common/runner.py` for the concurrency sweep, and the four carry-over items at
+the end of lab 00's findings — starting with `vram.py` v2.

@@ -1,0 +1,115 @@
+{
+  "prompt": "In one sentence, what does tensor parallelism do?",
+  "n": 10,
+  "summary": {
+    "ttft_s": {
+      "n": 10,
+      "mean": 0.1081,
+      "median": 0.1018,
+      "stdev": 0.0225,
+      "min": 0.0973,
+      "max": 0.1718,
+      "cv_pct": 20.8
+    },
+    "decode_tokens_per_s": {
+      "n": 10,
+      "mean": 29.789,
+      "median": 29.79,
+      "stdev": 0.0152,
+      "min": 29.75,
+      "max": 29.8,
+      "cv_pct": 0.05
+    },
+    "total_s": {
+      "n": 10,
+      "mean": 1.2183,
+      "median": 1.2124,
+      "stdev": 0.0225,
+      "min": 1.2072,
+      "max": 1.2819,
+      "cv_pct": 1.84
+    }
+  },
+  "requests": [
+    {
+      "text": "Tensor parallelism distributes the computation of a single large tensor across multiple GPUs to enable the training and inference of models that exceed the memory capacity of a single device.",
+      "ttft_s": 0.1718,
+      "decode_tokens_per_s": 29.8,
+      "total_s": 1.2819,
+      "prompt_tokens": 23,
+      "completion_tokens": 33
+    },
+    {
+      "text": "Tensor parallelism distributes the computation of a single large tensor across multiple GPUs to enable the training and inference of models that exceed the memory capacity of a single device.",
+      "ttft_s": 0.0995,
+      "decode_tokens_per_s": 29.8,
+      "total_s": 1.2093,
+      "prompt_tokens": 23,
+      "completion_tokens": 33
+    },
+    {
+      "text": "Tensor parallelism distributes the computation of a single large tensor across multiple GPUs to enable the training and inference of models that exceed the memory capacity of a single device.",
+      "ttft_s": 0.0973,
+      "decode_tokens_per_s": 29.79,
+      "total_s": 1.2072,
+      "prompt_tokens": 23,
+      "completion_tokens": 33
+    },
+    {
+      "text": "Tensor parallelism distributes the computation of a single large tensor across multiple GPUs to enable the training and inference of models that exceed the memory capacity of a single device.",
+      "ttft_s": 0.1001,
+      "decode_tokens_per_s": 29.8,
+      "total_s": 1.2099,
+      "prompt_tokens": 23,
+      "completion_tokens": 33
+    },
+    {
+      "text": "Tensor parallelism distributes the computation of a single large tensor across multiple GPUs to enable the training and inference of models that exceed the memory capacity of a single device.",
+      "ttft_s": 0.1049,
+      "decode_tokens_per_s": 29.79,
+      "total_s": 1.2148,
+      "prompt_tokens": 23,
+      "completion_tokens": 33
+    },
+    {
+      "text": "Tensor parallelism distributes the computation of a single large tensor across multiple GPUs to enable the training and inference of models that exceed the memory capacity of a single device.",
+      "ttft_s": 0.0992,
+      "decode_tokens_per_s": 29.79,
+      "total_s": 1.2095,
+      "prompt_tokens": 23,
+      "completion_tokens": 33
+    },
+    {
+      "text": "Tensor parallelism distributes the computation of a single large tensor across multiple GPUs to enable the training and inference of models that exceed the memory capacity of a single device.",
+      "ttft_s": 0.1022,
+      "decode_tokens_per_s": 29.8,
+      "total_s": 1.212,
+      "prompt_tokens": 23,
+      "completion_tokens": 33
+    },
+    {
+      "text": "Tensor parallelism distributes the computation of a single large tensor across multiple GPUs to enable the training and inference of models that exceed the memory capacity of a single device.",
+      "ttft_s": 0.1017,
+      "decode_tokens_per_s": 29.75,
+      "total_s": 1.2128,
+      "prompt_tokens": 23,
+      "completion_tokens": 33
+    },
+    {
+      "text": "Tensor parallelism distributes the computation of a single large tensor across multiple GPUs to enable the training and inference of models that exceed the memory capacity of a single device.",
+      "ttft_s": 0.102,
+      "decode_tokens_per_s": 29.79,
+      "total_s": 1.2128,
+      "prompt_tokens": 23,
+      "completion_tokens": 33
+    },
+    {
+      "text": "Tensor parallelism distributes the computation of a single large tensor across multiple GPUs to enable the training and inference of models that exceed the memory capacity of a single device.",
+      "ttft_s": 0.1022,
+      "decode_tokens_per_s": 29.78,
+      "total_s": 1.2131,
+      "prompt_tokens": 23,
+      "completion_tokens": 33
+    }
+  ]
+}

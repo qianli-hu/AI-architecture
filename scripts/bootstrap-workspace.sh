@@ -98,6 +98,16 @@ pane_history = true
 EOF
 fi
 
+# herdr plugins install under ~/.config/herdr, so they are on the volume and
+# survive. But herdr-sidebar opens a preview by TYPING `herdr-sidebar --preview`
+# into a fresh shell, and RunPod's /etc/rp_environment (sourced by ~/.bashrc)
+# resets PATH in every shell -- so the command is not found and the sidebar
+# reports a misleading "preview switch blocked". Link it somewhere PATH keeps.
+# Only links what was installed by hand; this script never fetches a plugin.
+for bin in "$HOME"/.config/herdr/plugins/github/herdr-sidebar-*/plugins/herdr-sidebar/target/release/herdr-sidebar; do
+  [ -x "$bin" ] && ln -sfn "$bin" /usr/local/bin/herdr-sidebar
+done
+
 say "git identity"
 git config --global user.name  "Qianli Hu"
 git config --global user.email "qianlihuwork@gmail.com"

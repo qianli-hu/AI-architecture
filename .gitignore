@@ -18,3 +18,9 @@ hf-cache/
 
 # pod connection details, written by `make up`
 .pod
+
+# per-user Claude Code permissions
+.claude/settings.local.json
+
+# a running server, not a result
+vllm.pid

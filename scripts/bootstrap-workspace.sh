@@ -55,7 +55,7 @@ fi
 say "system packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq git curl rsync tmux jq build-essential ca-certificates >/dev/null
+apt-get install -y -qq git curl rsync tmux jq build-essential ca-certificates openssh-client >/dev/null
 
 say "uv"
 command -v uv >/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -77,11 +77,36 @@ https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cl
   apt-get update -qq && apt-get install -y -qq gh >/dev/null
 fi
 
+say "herdr"
+command -v herdr >/dev/null || curl -fsSL https://herdr.dev/install.sh | sh
+# herdr keeps config, session.json and its sockets in ~/.config/herdr, which
+# is already on the volume (persist .config above). Only the binary is
+# ephemeral. Seed the config once; never clobber an edited one.
+if [ ! -e "$HOME/.config/herdr/config.toml" ]; then
+  mkdir -p "$HOME/.config/herdr"
+  cat > "$HOME/.config/herdr/config.toml" <<'EOF'
+# Full reference: herdr --default-config
+
+[session]
+# after a server restart (= every new pod), reopen agent panes into their
+# previous conversation. Needs: herdr integration install claude
+resume_agents_on_restore = true
+
+[experimental]
+# replay recent pane screen contents after a full server restart
+pane_history = true
+EOF
+fi
+
 say "git identity"
 git config --global user.name  "Qianli Hu"
 git config --global user.email "qianlihuwork@gmail.com"
 git config --global init.defaultBranch main
-git config --global --add safe.directory "$REPO_DIR"
+git config --global --replace-all safe.directory "$REPO_DIR"
+# ~/.gitconfig is ephemeral but the gh token is on the volume: `gh auth login`
+# wired the credential helper once, and a new pod never logs in again, so
+# re-wire it here or `git push` fails on every pod after the first.
+gh auth status >/dev/null 2>&1 && gh auth setup-git
 
 say "repo"
 if [ -d "$REPO_DIR/.git" ]; then

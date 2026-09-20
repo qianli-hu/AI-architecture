@@ -17,7 +17,7 @@ workspace. The repo is the transfer mechanism; this file holds the *why*.
 
 | Tier | Spec | $/hr | Use |
 |---|---|---|---|
-| **Workspace** | `cpu3g` CPU pod, 4 vCPU / 16 GB | **$0.16** | editing, git, AI CLIs |
+| **Workspace** | `cpu3g` CPU pod, 2 vCPU | **$0.08** | editing, git, AI CLIs |
 | Small labs | 1× L4, 24 GB | $0.49 | labs 00–02, Qwen3.5-4B |
 | Big labs | 1–2× RTX PRO 6000, 96 GB | $2.09 / $4.18 | labs 03–04, Qwen3.8-27B |
 
@@ -99,8 +99,9 @@ would make the US-MO-2 pin genuinely expensive.
 - `--kv-cache-dtype fp8` on Blackwell — verify in the smoke test
 - Can one network volume mount to two pods at once? Affects whether the CPU
   workspace can stay up while a GPU pod runs
-- `common/{plan,pod,serve,smoke}.py` are referenced by the Makefile but not
-  yet written (~250 lines)
+- A RunPod API key with read/write scope must be exported from
+  `/workspace/.home/.bash_env`. The `RUNPOD_API_KEY` RunPod injects into a pod
+  is scoped to that pod and gets a 403 from the REST API.
 - Account balance unverified — the MCP surface exposes spend, not balance
 
 ---

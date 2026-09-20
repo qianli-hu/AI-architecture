@@ -1,0 +1,10 @@
+{
+  "card_gb": 24.0,
+  "tp_size": 1,
+  "weights_per_gpu_gb": 9.34,
+  "kv_per_gpu_gb": 12.16,
+  "kv_total_gb": 12.16,
+  "kv_bytes_per_token": 32768,
+  "max_kv_tokens": 398458,
+  "fits": true
+}

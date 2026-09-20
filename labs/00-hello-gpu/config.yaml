@@ -2,13 +2,16 @@
 lab: 00-hello-gpu
 
 pod:
-  gpu: "NVIDIA RTX A5000"
+  gpu: "NVIDIA L4"          # RunPod gpuTypeId
+  card: l4                  # -> common.vram.CARDS
   count: 1
   cloud: SECURE
+  datacenter: US-MO-2       # must match the volume's building
+  network_volume_id: 59jaue9ud8   # repo + weights arrive already mounted
+  image: vllm/vllm-openai:v0.29.0-cu129   # pinned 2026-09-19; 10.7 GB compressed
   container_disk_gb: 30     # image unpacks ~15-20 GB
-  volume_disk_gb: 40        # 9.34 GB weights + .venv + headroom
-  ports: ["22/tcp"]         # direct SSH — rsync needs this
-  price_per_gpu_hr: 0.27
+  ports: ["22/tcp"]         # SSH only — vLLM is reached on localhost, never exposed
+  price_per_gpu_hr: 0.49
 
 model:
   repo: "Qwen/Qwen3.5-4B"

@@ -111,14 +111,17 @@ MODELS = {
     "qwen3.8-27b": ModelSpec("Qwen/Qwen3.8-27B", 52.0, 64, 4, 4, 256),
 }
 
-CARDS = {"a5000": 24.0, "a40": 48.0, "a6000": 48.0, "4090": 24.0, "l40s": 48.0}
+# Nominal GB, as sold. What the driver actually exposes is less -- that
+# difference is part of the gap findings.md has to explain.
+CARDS = {"l4": 24.0, "pro6000": 96.0,
+         "a5000": 24.0, "a40": 48.0, "a6000": 48.0, "4090": 24.0, "l40s": 48.0}
 
 
 def main(argv: list[str] | None = None) -> int:
     import argparse
     p = argparse.ArgumentParser(description="Predict a vLLM VRAM budget.")
     p.add_argument("--model", default="qwen3.5-4b", choices=sorted(MODELS))
-    p.add_argument("--card", default="a5000", choices=sorted(CARDS))
+    p.add_argument("--card", default="l4", choices=sorted(CARDS))
     p.add_argument("--tp", type=int, default=1)
     p.add_argument("--kv-dtype-bytes", type=int, default=2, choices=[1, 2])
     a = p.parse_args(argv)

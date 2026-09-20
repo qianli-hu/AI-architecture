@@ -3,7 +3,7 @@ name = "inference-infra"
 version = "0.1.0"
 description = "A five-lab ladder for learning GPU inference infrastructure"
 requires-python = ">=3.11"
-dependencies = ["pyyaml>=6.0", "requests>=2.31"]
+dependencies = ["pyyaml>=6.0", "requests>=2.31", "huggingface_hub>=0.34"]
 
 [project.optional-dependencies]
 analysis = ["pandas>=2.2", "matplotlib>=3.8"]

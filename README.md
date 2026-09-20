@@ -34,6 +34,9 @@ The Mac holds **only the SSH private key**. All editing, git, and execution
 happen on the pod. The volume persists across pod terminations; the pod does
 not. Create a pod when you sit down, terminate when you stand up.
 
+Setting up a Mac (or a second one) to `ssh pod`:
+**[docs/MAC-SETUP.md](docs/MAC-SETUP.md)**.
+
 | Tier | Spec | $/hr |
 |---|---|---|
 | Workspace | `cpu3g` 2 vCPU / 8 GB | $0.08 |
@@ -44,6 +47,6 @@ Volume: $10.50/mo, always. Compute: only while a pod runs.
 
 ## Layout
 
-    common/          shared harness (runner, vram, parse, pod)
-    labs/NN-name/    config.yaml  results/  findings.md
+    common/          shared harness (plan, pod, serve, smoke, parse, timing, vram)
+    labs/NN-name/    config.yaml  results/<run>/  findings.md
     docs/specs/      one spec per lab

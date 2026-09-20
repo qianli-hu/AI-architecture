@@ -22,8 +22,8 @@ def test_hybrid_is_four_times_cheaper_than_dense():
     assert dense.kv_bytes_per_token() == 4 * hybrid.kv_bytes_per_token()
 
 
-def test_lab00_fits_on_one_a5000():
-    b = plan(MODELS["qwen3.5-4b"], CARDS["a5000"], tp_size=1)
+def test_lab00_fits_on_one_l4():
+    b = plan(MODELS["qwen3.5-4b"], CARDS["l4"], tp_size=1)
     assert b.fits
     assert b.kv_per_gpu_gb == pytest.approx(24.0 - 0.5 - 9.34 - 2.0, abs=0.01)
     assert b.max_kv_tokens > 300_000

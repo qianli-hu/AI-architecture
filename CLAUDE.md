@@ -59,6 +59,12 @@ tmux new -A -s work           # attach if it exists, create if not
 `Ctrl-b d` detaches on purpose; `tmux ls` lists sessions. Long jobs — a weight
 download, a benchmark sweep — should never run outside tmux.
 
+`herdr` is the alternative for agent work: `ssh pod`, then `herdr` (not inside
+tmux — both use `Ctrl-b`). `Ctrl-b q` detaches, `herdr` reattaches. Its config
+and `session.json` live in `~/.config/herdr`, so they are on the volume: a new
+pod restores the layout and resumes Claude conversations, but **not** running
+processes — those die with the pod like everything else.
+
 ## Cost discipline
 
 | Tier | Spec | $/hr |
@@ -84,9 +90,12 @@ work — write and test the harness on the cheap tier.
 
 ## State as of 2026-09-19
 
-Done: repo, specs, `common/vram.py` (8 tests green), Makefile, bootstrap
-script, 150 GB volume in US-MO-2, workspace pod verified.
+Done: repo, specs, bootstrap script, 150 GB volume in US-MO-2, workspace pod
+verified. The lab 00 harness — `common/{config,plan,pod,serve,parse,smoke,timing}.py`,
+30 tests green — dry-run end to end against a fake `vllm`. `Qwen/Qwen3.5-4B`
+weights are already in `/workspace/hf-cache`.
 
-Next: `common/{plan,pod,serve,smoke,runner}.py` — roughly 250 lines, no GPU
-needed — then lab 00 can run. See `docs/specs/00-hello-gpu.md` for the
-stopwatch table it has to fill in.
+Next: run lab 00. Blocked only on a read/write `RUNPOD_API_KEY` in
+`/workspace/.home/.bash_env` (the one RunPod injects is pod-scoped and gets a
+403). Then `make plan gpu-up`, and follow "The loop" in
+`docs/specs/00-hello-gpu.md`. `common/runner.py` is lab 01's job.
